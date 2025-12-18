@@ -15,7 +15,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: 'pip'
+          cache: pip
 
       - name: Install dependencies
         run: |
@@ -36,6 +36,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify Docker Hub username secret is present (safe)
+        run: |
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
+            echo "DOCKERHUB_USERNAME secret is empty or missing" >&2
+            exit 1
+          fi
+          echo "DOCKERHUB_USERNAME length: ${#{{ secrets.DOCKERHUB_USERNAME }}}"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -45,6 +53,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Compute tags
+        id: vars
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -52,4 +64,4 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/devops-fastapi-project:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/devops-fastapi-project:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/devops-fastapi-project:${{ steps.vars.outputs.SHORT_SHA }}
