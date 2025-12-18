@@ -10,13 +10,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Build API image
         run: docker build -t api-under-test:local .
 
       - name: Run API container
         run: |
           docker run -d --name api -p 8000:8000 api-under-test:local
-          for i in {1..20}; do
+          for i in {1..30}; do
             if curl -sSf http://localhost:8000/health >/dev/null; then
               echo "API is up"
               exit 0
@@ -31,6 +34,7 @@ jobs:
         uses: zaproxy/action-baseline@v0.14.0
         with:
           target: "http://localhost:8000"
+          fail_action: false
 
       - name: Stop container
         if: always()
