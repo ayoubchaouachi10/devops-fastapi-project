@@ -35,6 +35,7 @@ jobs:
         with:
           target: "http://localhost:8000"
           fail_action: false
+          allow_issue_writing: false
 
       - name: Stop container
         if: always()
