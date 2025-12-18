@@ -1,0 +1,37 @@
+name: DAST (OWASP ZAP)
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  zap-baseline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Build API image
+        run: docker build -t api-under-test:local .
+
+      - name: Run API container
+        run: |
+          docker run -d --name api -p 8000:8000 api-under-test:local
+          for i in {1..20}; do
+            if curl -sSf http://localhost:8000/health >/dev/null; then
+              echo "API is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API did not start" >&2
+          docker logs api || true
+          exit 1
+
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: "http://localhost:8000"
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f api
