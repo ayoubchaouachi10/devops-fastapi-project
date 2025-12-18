@@ -3,7 +3,29 @@ from pydantic import BaseModel, Field
 import sqlite3, os, time, logging
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
+from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
+def setup_tracing(app):
+    # Enable/disable via env (useful for local/dev)
+    if os.getenv("OTEL_TRACING_ENABLED", "true").lower() != "true":
+        return
+
+    service_name = os.getenv("OTEL_SERVICE_NAME", "devops-fastapi-project")
+    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318/v1/traces")
+
+    resource = Resource.create({"service.name": service_name})
+    provider = TracerProvider(resource=resource)
+    trace.set_tracer_provider(provider)
+
+    exporter = OTLPSpanExporter(endpoint=endpoint)
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+
+    FastAPIInstrumentor.instrument_app(app)
 APP_NAME = "devops-fastapi"
 DB_PATH = os.getenv("DB_PATH", "data/app.db")
 
@@ -99,3 +121,5 @@ def mark_done(task_id: int):
 @app.get("/metrics")
 def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+app = FastAPI()
+setup_tracing(app)
